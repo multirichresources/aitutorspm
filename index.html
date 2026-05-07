@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Tutor SPM — Cikgu AI</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07090d;--surf:#0e1117;--card:#141924;--border:#1c2433;
+  --purple:#7c3aed;--purplehi:#9333ea;--purplesoft:#a78bfa;--purpledim:rgba(124,58,237,.12);
+  --text:#e2e8f0;--muted:#64748b;--faint:#1e293b;
+  --green:#10b981;--greendim:rgba(16,185,129,.1);
+  --amber:#f59e0b;--amberdim:rgba(245,158,11,.1);
+  --red:#ef4444;--reddim:rgba(239,68,68,.08);
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+
+/* ─── SETUP SCREEN ─── */
+#screen-setup{max-width:740px;margin:0 auto;padding:32px 20px 60px}
+.setup-logo{display:flex;align-items:center;gap:12px;margin-bottom:32px}
+.setup-logo-icon{width:44px;height:44px;border-radius:12px;background:var(--purple);display:flex;align-items:center;justify-content:center;font-size:22px}
+.setup-logo h1{font-size:20px;font-weight:700;color:var(--purplesoft)}
+.setup-logo p{font-size:12px;color:var(--muted);margin-top:2px}
+.setup-section{margin-bottom:24px}
+.setup-section h2{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+.input-field{width:100%;background:#0c111a;border:1px solid var(--border);border-radius:10px;color:var(--text);padding:11px 14px;font-size:14px;outline:none;font-family:inherit;transition:border-color .15s}
+.input-field:focus{border-color:var(--purple)}
+.input-field::placeholder{color:#334155}
+.form-toggle{display:flex;gap:8px}
+.form-btn{flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:14px;font-weight:500;cursor:pointer;transition:all .15s}
+.form-btn.active{border-color:var(--purple);color:var(--purplesoft);background:var(--purpledim)}
+.subject-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.subj-card{padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:var(--card);cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:9px}
+.subj-card:hover{border-color:#2d3a4d;background:#181f2c}
+.subj-card.selected{border-color:var(--purple);background:var(--purpledim)}
+.subj-icon{font-size:20px;flex-shrink:0}
+.subj-name{font-size:13px;font-weight:500;color:var(--text);line-height:1.3}
+.start-btn{width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--purple),var(--purplehi));color:#fff;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;transition:opacity .15s}
+.start-btn:hover{opacity:.9}
+.start-btn:disabled{background:#1e293b;color:var(--muted);cursor:not-allowed;opacity:1}
+.pilot-note{background:var(--amberdim);border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:12px 14px;font-size:12.5px;color:#fcd34d;margin-top:16px;line-height:1.6}
+
+/* ─── AGENT SCREEN ─── */
+#screen-agent{display:none;height:100vh;display:none;flex-direction:column}
+.agent-header{background:var(--surf);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.agent-logo{width:34px;height:34px;border-radius:9px;background:var(--purple);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.agent-info{flex:1}
+.agent-info .name{font-size:13px;font-weight:600;color:var(--purplesoft)}
+.agent-info .sub{font-size:11px;color:var(--muted)}
+.countdown-box{background:var(--faint);border:1px solid var(--border);border-radius:8px;padding:4px 10px;text-align:center;flex-shrink:0}
+.countdown-num{font-size:16px;font-weight:700;color:var(--amber);display:block;line-height:1}
+.countdown-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.phase-bar{background:var(--surf);border-bottom:1px solid var(--border);padding:8px 14px;display:flex;gap:6px;flex-shrink:0;overflow-x:auto}
+.phase-bar::-webkit-scrollbar{height:0}
+.phase-chip{padding:4px 11px;border-radius:20px;font-size:11px;font-weight:500;border:1px solid var(--border);color:var(--muted);white-space:nowrap;flex-shrink:0;transition:all .2s}
+.phase-chip.done{border-color:var(--green);color:var(--green);background:var(--greendim)}
+.phase-chip.active{border-color:var(--purple);color:var(--purplesoft);background:var(--purpledim)}
+.chat-wrap{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.chat-wrap::-webkit-scrollbar{width:3px}
+.chat-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.msg-row{display:flex;gap:8px;align-items:flex-start;max-width:90%}
+.msg-row.user{align-self:flex-end;flex-direction:row-reverse}
+.msg-avatar{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-top:2px}
+.msg-avatar.ai{background:#1a1040}
+.msg-avatar.user{background:#0f1e30}
+.msg-inner{display:flex;flex-direction:column;gap:3px}
+.bubble{padding:9px 13px;border-radius:12px;font-size:13.5px;line-height:1.75}
+.bubble.ai{background:var(--card);border:1px solid var(--border);color:#cbd5e1;border-top-left-radius:3px}
+.bubble.user{background:#1a1040;border:1px solid #2d1f50;color:#c4b5fd;border-top-right-radius:3px}
+.bubble strong{color:var(--purplesoft)}
+.bubble .opt{display:block;padding:6px 10px;margin-top:6px;border-radius:7px;border:1px solid #1e2d3d;color:#94a3b8;font-size:12.5px;cursor:pointer;transition:all .15s;background:transparent;text-align:left}
+.bubble .opt:hover{border-color:var(--purple);color:var(--purplesoft);background:var(--purpledim)}
+.bubble .opt.correct{border-color:var(--green)!important;color:var(--green)!important;background:var(--greendim)!important;cursor:default}
+.bubble .opt.wrong{border-color:var(--red)!important;color:var(--red)!important;background:var(--reddim)!important;cursor:default}
+.msg-time{font-size:10px;color:#1e293b}
+.msg-row.user .msg-time{text-align:right}
+.typing-bubble{background:var(--card);border:1px solid var(--border);border-radius:12px;border-top-left-radius:3px;padding:11px 14px;display:flex;gap:4px;align-items:center}
+.typing-bubble span{width:6px;height:6px;border-radius:50%;background:var(--purple);animation:bounce .7s infinite ease-in-out}
+.typing-bubble span:nth-child(2){animation-delay:.14s}
+.typing-bubble span:nth-child(3){animation-delay:.28s}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.input-row{background:var(--surf);border-top:1px solid var(--border);padding:10px 14px;display:flex;gap:8px;align-items:flex-end;flex-shrink:0}
+#msg-input{flex:1;background:#0c111a;border:1px solid var(--border);border-radius:10px;color:var(--text);padding:9px 13px;font-size:13.5px;outline:none;font-family:inherit;resize:none;min-height:40px;max-height:110px;line-height:1.5;transition:border-color .15s}
+#msg-input:focus{border-color:var(--purple)}
+#msg-input::placeholder{color:#334155}
+#send-btn{width:40px;height:40px;border-radius:9px;border:none;background:var(--purple);color:#fff;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s}
+#send-btn:hover{opacity:.85}
+#send-btn:disabled{background:#1e293b;cursor:not-allowed;opacity:1}
+.reset-btn{background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--muted);font-size:11px;padding:4px 9px;cursor:pointer;flex-shrink:0;align-self:center}
+.reset-btn:hover{border-color:#3d4f63;color:var(--text)}
+@media(max-width:500px){.subject-grid{grid-template-columns:repeat(2,1fr)}.countdown-box{display:none}}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 1 — SETUP
+══════════════════════════════════════════ -->
+<div id="screen-setup">
+  <div class="setup-logo">
+    <div class="setup-logo-icon">🎓</div>
+    <div>
+      <h1>AI Tutor SPM</h1>
+      <p>Silibus KPM KSSM • Tingkatan 4 &amp; 5 • Powered by Claude AI</p>
+    </div>
+  </div>
+
+  <div class="setup-section">
+    <h2>Nama kamu</h2>
+    <input class="input-field" id="inp-name" type="text" placeholder="Contoh: Ahmad Faris / Nurul Ain...">
+  </div>
+
+  <div class="setup-section">
+    <h2>Tingkatan</h2>
+    <div class="form-toggle">
+      <button class="form-btn active" id="btn-t4" onclick="setForm('4')">Tingkatan 4</button>
+      <button class="form-btn" id="btn-t5" onclick="setForm('5')">Tingkatan 5</button>
+    </div>
+  </div>
+
+  <div class="setup-section">
+    <h2>Pilih subjek hari ini</h2>
+    <div class="subject-grid" id="subject-grid"></div>
+  </div>
+
+  <div class="setup-section">
+    <h2>Tarikh peperiksaan SPM (optional)</h2>
+    <input class="input-field" id="inp-date" type="date">
+  </div>
+
+  <button class="start-btn" id="start-btn" onclick="startAgent()" disabled>
+    🚀 Mulakan Sesi Belajar dengan Cikgu AI
+  </button>
+
+  <div class="pilot-note">
+    ⚡ <strong>Pilot Test</strong> — Terima kasih kerana menjadi pengguna awal AI Tutor SPM. Maklum balas kamu sangat berharga untuk kami! Selepas sesi, sila kongsikan pendapat kamu.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 2 — AGENT CHAT
+══════════════════════════════════════════ -->
+<div id="screen-agent" style="display:none;height:100vh;flex-direction:column">
+  <div class="agent-header">
+    <div class="agent-logo">🎓</div>
+    <div class="agent-info">
+      <div class="name" id="hdr-name">Cikgu AI</div>
+      <div class="sub" id="hdr-sub">Subjek • Tingkatan</div>
+    </div>
+    <button class="reset-btn" onclick="resetSession()">← Tukar</button>
+    <div class="countdown-box" id="countdown-box" style="display:none">
+      <span class="countdown-num" id="countdown-num">–</span>
+      <span class="countdown-lbl">hari lagi</span>
+    </div>
+  </div>
+
+  <div class="phase-bar" id="phase-bar">
+    <div class="phase-chip active" id="ph-1">① Kenali pelajar</div>
+    <div class="phase-chip" id="ph-2">② Kenal pasti kelemahan</div>
+    <div class="phase-chip" id="ph-3">③ Kuiz diagnostik</div>
+    <div class="phase-chip" id="ph-4">④ Pengajaran terarah</div>
+    <div class="phase-chip" id="ph-5">⑤ Latihan SPM</div>
+    <div class="phase-chip" id="ph-6">⑥ Rumusan &amp; plan</div>
+  </div>
+
+  <div class="chat-wrap" id="chat-wrap"></div>
+
+  <div class="input-row">
+    <textarea id="msg-input" placeholder="Taip jawapan atau soalan kamu..." rows="1"></textarea>
+    <button id="send-btn" onclick="send()" title="Hantar">➤</button>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════
+   SILIBUS KPM KSSM
+══════════════════════════════════ */
+const SUBJ = {
+  'Matematik':{icon:'📐',color:'#7c3aed',
+    f4:'Bab 1: Nombor Nisbah (operasi, perpuluhan, pecahan)\nBab 2: Nombor Bukan Nisbah (surd, π)\nBab 3: Punca Kuasa Dua & Tiga\nBab 4: Indeks & Hukum Indeks, Bentuk Piawai\nBab 5: Matematik Pengguna I (peratus, untung rugi, kadar)\nBab 6: Nisbah, Kadar & Perwakilan Graf\nBab 7: Persamaan Linear (satu & dua pemboleh ubah)\nBab 8: Graf Fungsi (koordinat, linear, kuadratik)\nBab 9-12: Geometri (sudut, poligon, bulatan, pepejal 3D)\nBab 13: Statistik I (min, mod, median, histogram, ogif)\nBab 14: Kebarangkalian I (ruang sampel, kebarangkalian asas)',
+    f5:'Bab 1: Variasi Langsung & Songsang\nBab 2: Matriks (operasi, penentu, songsang)\nBab 3: Matematik Pengguna II (simpan kira, deposit, insurans)\nBab 4: Indeks Nombor (CPI, harga berkomposit)\nBab 5: Graf Fungsi Lanjutan\nBab 6: Janjang Aritmetik & Geometri (Tn, Sn)\nBab 7: Geometri Koordinat (pembahagian titik, luas)\nBab 8: Teorem Pythagoras (pembuktian, masalah)\nBab 9: Trigonometri Asas (sin, cos, tan)\nBab 10: Sudut & Tangen Bulatan\nBab 11: Pelan & Dongakan\nBab 12: Statistik II (varians, sisihan piawai)\nBab 13: Kebarangkalian II (gambar rajah pokok)',
+    paper:'Kertas 1 (1j 30m): 40 soalan OBJEKTIF — 40 markah\nKertas 2 (2j 30m):\n  Bhg A: 11 soalan WAJIB — 52 markah\n  Bhg B: PILIH 4 drpd 5 — 48 markah',
+    tips:'Tunjuk SEMUA langkah dalam Kertas 2. Soalan bulatan, trigonometri dan statistik sering keluar. Bhg B: baca semua soalan dulu, pilih yang paling yakin.'},
+
+  'Matematik Tambahan':{icon:'📊',color:'#0ea5e9',
+    f4:'Bab 1: Fungsi (gubahan, songsang, domain, julat)\nBab 2: Persamaan Kuadratik (punca, diskriminan, membentuk persamaan)\nBab 3: Fungsi Kuadratik (graf, min/maks, julat)\nBab 4: Indeks & Logaritma (hukum log, persamaan eksponen)\nBab 5: Janjang Aritmetik (Tn, Sn)\nBab 6: Janjang Geometri (Tn, Sn, Sinfinity)\nBab 7: Geometri Koordinat (titik tengah, persamaan garis, lokus)\nBab 8: Vektor (operasi, vektor unit, titik sekurutan)\nBab 9: Penyelesaian Segi Tiga (Petua Sinus, Kosinus, luas)\nBab 10: Nombor Indeks',
+    f5:'Bab 1: Pembezaan (kaedah, pembezaan tersirat, komposit, titik pegun)\nBab 2: Pengamiran (teknik, luas bawah lengkung, isipadu)\nBab 3: Pilihatur & Gabungan (nPr, nCr, prinsip asas)\nBab 4: Kebarangkalian (P(A∪B), P(A∩B), Binomial)\nBab 5: Taburan Kebarangkalian (Binomial, Normal)\nBab 6: Pensampelan & Anggaran\nBab 7: Geometri Koordinat Lanjutan\nBab 8: Fungsi Trigonometri (graf, persamaan)',
+    paper:'Kertas 1 (2j): 25 soalan WAJIB — 80 markah\nKertas 2 (2j 30m):\n  Bhg A: 7 soalan WAJIB — 40 markah\n  Bhg B: PILIH 3 drpd 4 — 30 markah\n  Bhg C: PILIH 2 drpd 3 — 30 markah',
+    tips:'Pembezaan & Pengamiran adalah topik terpenting. Tunjuk SETIAP langkah — markah diberikan untuk setiap baris. Bhg C biasanya Janjang, Taburan Normal, atau Pembezaan. Latih soalan SPM tahun lepas — corak soalan konsisten.'},
+
+  'Bahasa Malaysia':{icon:'✍️',color:'#10b981',
+    f4:'KOMSAS Antologi: Cerpen, Puisi, Drama (analisa tema, persoalan, watak, plot, gaya bahasa)\nTatabahasa: Kata nama, kata kerja, kata adjektif, kata tugas, imbuhan\nKarangan: Fakta, Imaginatif, Pendapat, Surat Kiriman Rasmi/Tidak Rasmi\nRumusan: Teknik kenal isi, tulis semula, format\nKefahaman: Teknik jawab soalan comprehension',
+    f5:'KOMSAS Novel: Tema, persoalan, watak & perwatakan, plot, latar, gaya bahasa\nPeribahasa: Simpulan bahasa, perumpamaan, bidalan (hafal 30-40 contoh)\nKarangan Lanjutan: Esei hujah kritis, format laporan, artikel\nRumusan Lanjutan: Petikan kompleks dua teks\nTatabahasa Lanjutan: Ayat majmuk, kesalahan tatabahasa biasa',
+    paper:'Kertas 1 (1j 45m):\n  Bhg A: Rumusan — 30 markah (120 patah perkataan)\n  Bhg B: Karangan — 50 markah (min 350 patah perkataan)\nKertas 2 (2j 30m):\n  Bhg A: Kefahaman teks — 25 markah\n  Bhg B: Tatabahasa — 25 markah\n  Bhg C: KOMSAS Prosa Tradisional — 15 markah\n  Bhg D: KOMSAS Cerpen/Novel — 15 markah\n  Bhg E: KOMSAS Puisi/Drama — 15 markah',
+    tips:'Rumusan: Isi MESTI dari teks, jangan tambah idea sendiri. Min 5-6 isi. Karangan: ayat pembuka yang menarik, min 5 perenggan. KOMSAS: hafal watak, tema, dan persoalan setiap teks. Tatabahasa: elak kesilapan kata sendi nama dan imbuhan.'},
+
+  'Bahasa Inggeris':{icon:'🇬🇧',color:'#f59e0b',
+    f4:'Paper 1 Directed Writing: Formal letter, informal letter, report, speech, article\nPaper 1 Continuous Writing: Narrative, descriptive, argumentative essays\nPaper 2 Section 1: Multiple choice comprehension\nPaper 2 Section 2: Short answer comprehension (short texts)\nPaper 2 Section 3: Long answer comprehension\nPaper 2 Section 4: Summary writing (80-130 words)\nGrammar: Tenses, articles, prepositions, passive voice, relative clauses',
+    f5:'Literature Component: Short stories, poems, drama analysis\nAdvanced Grammar: Conditional sentences, reported speech, modal verbs\nVocabulary: Phrasal verbs, collocations, idiomatic expressions\nLiterature Themes: Characters, moral values, setting, plot\nAdvanced Writing: Complex sentence structures, cohesion devices',
+    paper:'Paper 1 (1h 45m):\n  Section A: Directed Writing — 35 marks (based on given notes)\n  Section B: Continuous Writing — 50 marks (choose 1 from 5 topics)\nPaper 2 (2h 15m):\n  Section 1: 15 multiple choice — 15 marks\n  Section 2: Short answer comprehension — 25 marks\n  Section 3: Long answer comprehension — 25 marks\n  Section 4: Summary — 25 marks\n  Section 5: Literature — 25 marks',
+    tips:'Directed Writing: USE ALL given notes — each unused point loses marks. Min 350 words for essays. Summary: only extract information from the text, 80-130 words. Literature: know themes, characters, and moral values for all set texts. Comprehension: read the questions FIRST, then read the passage.'},
+
+  'Fizik':{icon:'⚛️',color:'#8b5cf6',
+    f4:'Bab 1: Pengukuran (unit SI, alat ukur, ralat, angka bererti)\nBab 2: Daya & Gerakan I (halaju, pecutan, graf gerakan, SUVAT)\nBab 3: Daya & Gerakan II (Hukum Newton, momen, geseran, keseimbangan)\nBab 4: Kerja, Tenaga & Kuasa (KE, PE, keabadian tenaga, P=W/t)\nBab 5: Sifat Jirim (tekanan, Archimedes, Bernoulli, gas)\nBab 6: Haba (muatan haba tentu, haba pendam tentu, penghantaran haba)',
+    f5:'Bab 1: Gelombang (amplitud, frekuensi, pantulan, biasan, lenturan, interferens)\nBab 2: Cahaya & Optik (cermin, kanta, mata, teleskop, periskop)\nBab 3: Elektrik & Elektronik (Ohm, rintangan, Kirchhoff, litar siri/selari)\nBab 4: Elektromagnet (aruhan EM, penjana, motor DC, transformer)\nBab 5: Elektronik (diod, transistor, litar logik, LED)\nBab 6: Radioaktiviti (sinar alfa/beta/gama, reputan, nombor atom/jisim)',
+    paper:'Kertas 1 (1j 15m): 50 soalan OBJEKTIF — 50 markah\nKertas 2 (2j 30m):\n  Bhg A: 7 soalan struktur WAJIB — 60 markah\n  Bhg B: PILIH 1 drpd 2 soalan esei — 20 markah\nKertas 3 (1j 30m):\n  Bhg A: Analisa eksperimen — 16 markah\n  Bhg B: Reka bentuk eksperimen — 20 markah',
+    tips:'Kertas 3: hafal format (pemboleh ubah, hipotesis, prosedur, jadual). Formula diberikan semasa periksa — faham cara guna. Tunjuk unit dalam setiap pengiraan. Lukisan rajah: label dengan jelas. Soalan esei biasanya ada dua bahagian: teori + pengiraan.'},
+
+  'Kimia':{icon:'🧪',color:'#ec4899',
+    f4:'Bab 1: Pengenalan Kimia (kaedah saintifik, keselamatan makmal, penulesan)\nBab 2: Jirim (teori kinetik, keadaan jirim, perubahan fasa, zarah)\nBab 3: Jadual Berkala (kumpulan, kala, trend, konfigurasi elektron)\nBab 4: Ikatan Kimia (ionik, kovalen, logam, sifat bahan)\nBab 5: Elektrokimia (elektrolisis, sel galvani, kakisan, penyaduran)\nBab 6: Termokimia (entalpi, eksotermik, endotermik)',
+    f5:'Bab 1: Kadar Tindak Balas (teori perlanggaran, faktor mempengaruhi, graf)\nBab 2: Karbon & Sebatian (siri homolog, alkana, alkena, tindak balas)\nBab 3: Sebatian Oksigen (alkohol, asid karboksilik, ester)\nBab 4: Bahan Polimer (polimer semula jadi, sintetik, termoplastik, termoset)\nBab 5: Penghasilan Bahan (keluli, kuprum, amonia/proses Haber, sulfurik asid)\nBab 6: Kimia Makanan & Konsumer (bahan tambah, ubatan, bahan pencuci)',
+    paper:'Kertas 1 (1j 15m): 50 soalan OBJEKTIF — 50 markah\nKertas 2 (2j 30m):\n  Bhg A: 8 soalan struktur WAJIB — 60 markah\n  Bhg B: PILIH 1 drpd 2 soalan esei — 20 markah\nKertas 3 (1j 30m):\n  Bhg A: Analisa eksperimen — 16 markah\n  Bhg B: Reka bentuk eksperimen — 20 markah',
+    tips:'Hafal simbol unsur biasa: Na, K, Ca, Mg, Al, Fe, Cu, Zn, Pb, Ag, Cl, O, H, N, C, S. Imbang persamaan kimia dengan betul. Elektrolisis: anod (+) = oksidasi, katod (-) = penurunan. Kimia organik: faham struktur molekul. Kertas 3: format sama Fizik.'},
+
+  'Biologi':{icon:'🧬',color:'#06b6d4',
+    f4:'Bab 1: Sel (struktur sel haiwan & tumbuhan, organel, membran, osmosis, difusi)\nBab 2: Pembahagian Sel (mitosis, meiosis, kitaran sel, kepentingan)\nBab 3: Nutrisi (manusia: pencernaan, enzim; tumbuhan: fotosintesis)\nBab 4: Respirasi Sel (aerobik, anaerobik, glikolisis, ATP, penapaian)\nBab 5: Ekosistem (rantai makanan, piramid, kitar biogeokimia, habitat)',
+    f5:'Bab 1: Pengangkutan (darah, limfa, peredaran darah, pengangkutan tumbuhan)\nBab 2: Pembiakan (aseksual, seksual, hormon pembiakan, kitaran haid, embriologi)\nBab 3: Pertumbuhan (hormon tumbuhan: auksin, gibberellin; hormon haiwan; graf)\nBab 4: Sistem Saraf & Hormon (refleks, otak, saraf, kelenjar endokrin, diabetes)\nBab 5: Genetik (Hukum Mendel, kacukan, segi empat Punnett, mutasi, DNA)\nBab 6: Variasi & Evolusi (adaptasi, seleksi asli, kepupusan, spesiasi)',
+    paper:'Kertas 1 (1j 15m): 50 soalan OBJEKTIF — 50 markah\nKertas 2 (2j 30m):\n  Bhg A: 8 soalan struktur WAJIB — 60 markah\n  Bhg B: PILIH 1 drpd 2 soalan esei — 20 markah\nKertas 3 (1j 30m):\n  Bhg A: Analisa eksperimen — 16 markah\n  Bhg B: Reka bentuk eksperimen — 20 markah',
+    tips:'Lukisan rajah sel mesti tepat dan berlabel. Soalan esei selalu ada perbandingan (contoh: mitosis vs meiosis). Genetik: faham cara lukis dan baca segi empat Punnett. Ingat formula fotosintesis & respirasi. Kertas 3: hafal format laporan.'},
+
+  'Sejarah':{icon:'🏛️',color:'#f97316',
+    f4:'Bab 1: Tamadun Awal Manusia (Mesopotamia, Mesir, Indus, China — sistem, sumbangan)\nBab 2: Tamadun Islam (Nabi Muhammad SAW, Khulafa ar-Rasyidin, kegemilangan)\nBab 3: Perkembangan Eropah (Renaissance, Reformasi, revolusi saintifik)\nBab 4: Islam di Asia Tenggara (penyebaran, kerajaan Islam, pengaruh)\nBab 5: Kegemilangan Melaka (pemerintahan, perdagangan, diplomatik, kebudayaan)\nBab 6: Nasionalisme di Asia (India, China, Jepun — perjuangan kemerdekaan)',
+    f5:'Bab 1: Nasionalisme Malaysia (kesedaran awal, gerakan, tokoh pejuang)\nBab 2: Persekutuan Tanah Melayu 1948 (penentangan, pembentukan, perjuangan)\nBab 3: Kemerdekaan 1957 (rundingan, London, Perlembagaan, tokoh)\nBab 4: Pembentukan Malaysia 1963 (Sabah, Sarawak, Singapura, cabaran)\nBab 5: Dasar Pembangunan Negara (DEB, NEP, Wawasan 2020, TN50)\nBab 6: Malaysia & Dunia (ASEAN, OIC, PBB, peranan Malaysia)\nBab 7: Perlembagaan Malaysia (Raja Berperlembagaan, hak asasi, demokrasi)',
+    paper:'Kertas 1 (1j 15m): 40 soalan OBJEKTIF — 40 markah\nKertas 2 (2j 30m):\n  Bhg A: 4 soalan WAJIB — 60 markah (struktur + esei pendek)\n  Bhg B: 1 soalan esei WAJIB — 40 markah\nKertas 3 (1j): Folio/Esei Panjang — 40 markah',
+    tips:'Hafal tarikh penting: 1957 Merdeka, 1963 Malaysia, 1969 13 Mei, 1970 DEB. "Huraikan" = fakta + huraian + contoh. "Bincangkan" = dua sudut pandang + kesimpulan. Esei Bhg B: intro kuat, min 4 isi, penutup berkait tema. Hubungkan fakta dengan konteks.'},
+
+  'Pendidikan Islam':{icon:'☪️',color:'#16a34a',
+    f4:'Akidah: Rukun Iman, sifat Allah, iman kepada malaikat, kitab, rasul\nFiqah: Bersuci, solat (syarat, rukun, sunat, batal), puasa, zakat\nSirah: Rasulullah SAW, Khulafa ar-Rasyidin\nAkhlak: Adab, sifat terpuji & tercela\nTilawah al-Quran: Hukum tajwid, surah-surah terpilih',
+    f5:'Akidah Lanjutan: Hari akhirat, qada & qadar, mukjizat\nFiqah Lanjutan: Haji, muamalat (jual beli, riba), jenayah Islam\nSirah Lanjutan: Tamadun Islam, perkembangan ilmu, tokoh ulama\nAkhlak Lanjutan: Tanggungjawab individu, keluarga, masyarakat, negara\nHubungan Islam dengan kehidupan semasa',
+    paper:'Kertas 1 (1j 15m): 40 soalan OBJEKTIF — 40 markah\nKertas 2 (2j 30m):\n  Bhg A: Tilawah & Hadis — 20 markah\n  Bhg B: Soalan struktur Akidah/Fiqah/Sirah — 40 markah\n  Bhg C: Esei — 40 markah',
+    tips:'Akidah: faham konsep, jangan sekadar hafal. Fiqah: ingat syarat, rukun, dan perkara yang membatalkan. Sirah: hubungkan dengan pengajaran. Esei: tulis dalil (ayat/hadis) untuk sokong jawapan. Akhlak: beri contoh dari kehidupan semasa.'},
+
+  'Ekonomi':{icon:'📈',color:'#0891b2',
+    f4:'Bab 1: Asas Ekonomi (keperluan, kehendak, sumber, masalah ekonomi asas)\nBab 2: Permintaan (Hukum Permintaan, faktor, anjakan keluk)\nBab 3: Penawaran (Hukum Penawaran, faktor, anjakan keluk)\nBab 4: Keseimbangan Pasaran (harga, lebihan, kekurangan)\nBab 5: Keanjalan (permintaan & penawaran, jenis, pengiraan)\nBab 6: Struktur Pasaran (persaingan sempurna, monopoli, oligopoli)',
+    f5:'Bab 1: Pengukuran Ekonomi (KDNK, KNK, KDNK perkapita, kitaran perniagaan)\nBab 2: Penentuan Pendapatan Negara (model pendapatan, pengganda)\nBab 3: Wang & Sistem Perbankan (fungsi wang, Bank Negara, dasar monetari)\nBab 4: Kewangan Awam (belanjawan, dasar fiskal, cukai, subsidio)\nBab 5: Perdagangan Antarabangsa (sebab, kelebihan perbandingan, dasar)\nBab 6: Pembangunan Ekonomi Malaysia (DEB, sektor ekonomi, cabaran)',
+    paper:'Kertas 1 (1j 15m): 40 soalan OBJEKTIF — 40 markah\nKertas 2 (2j 30m):\n  Bhg A: Soalan struktur WAJIB — 60 markah\n  Bhg B: PILIH 1 drpd 2 soalan esei — 40 markah',
+    tips:'Lukis graf dengan label yang betul (paksi, tajuk, titik seimbang). Keanjalan: ingat formula dan interpretasi nilai. Soalan esei: guna contoh Malaysia semasa. Dasar ekonomi: kaitkan dengan kesan pada pengguna dan pengeluar. Hafal definisi istilah ekonomi utama.'}
+};
+
+/* ══════════════════════════════════
+   STATE
+══════════════════════════════════ */
+let state = { name:'', form:'4', subject:'', examDate:'', history:[], phase:1 };
+
+/* ══════════════════════════════════
+   SETUP SCREEN
+══════════════════════════════════ */
+function renderSubjects(){
+  const grid = document.getElementById('subject-grid');
+  grid.innerHTML = '';
+  Object.entries(SUBJ).forEach(([name, s]) => {
+    const d = document.createElement('div');
+    d.className = 'subj-card' + (state.subject===name?' selected':'');
+    d.innerHTML = `<span class="subj-icon">${s.icon}</span><span class="subj-name">${name}</span>`;
+    d.onclick = () => { state.subject = name; renderSubjects(); checkReady(); };
+    grid.appendChild(d);
+  });
+}
+
+function setForm(f){
+  state.form = f;
+  document.getElementById('btn-t4').className = 'form-btn' + (f==='4'?' active':'');
+  document.getElementById('btn-t5').className = 'form-btn' + (f==='5'?' active':'');
+}
+
+function checkReady(){
+  const name = document.getElementById('inp-name').value.trim();
+  document.getElementById('start-btn').disabled = !(name && state.subject);
+}
+
+document.getElementById('inp-name').addEventListener('input', checkReady);
+renderSubjects();
+
+/* ══════════════════════════════════
+   START AGENT
+══════════════════════════════════ */
+function startAgent(){
+  state.name = document.getElementById('inp-name').value.trim();
+  state.examDate = document.getElementById('inp-date').value;
+  state.history = [];
+  state.phase = 1;
+
+  document.getElementById('screen-setup').style.display = 'none';
+  const agentEl = document.getElementById('screen-agent');
+  agentEl.style.display = 'flex';
+
+  document.getElementById('hdr-name').textContent = state.name + ' • Tingkatan ' + state.form;
+  document.getElementById('hdr-sub').textContent = SUBJ[state.subject].icon + ' ' + state.subject;
+
+  if(state.examDate){
+    const days = Math.ceil((new Date(state.examDate)-new Date())/86400000);
+    if(days > 0){
+      document.getElementById('countdown-num').textContent = days;
+      document.getElementById('countdown-box').style.display = 'block';
+    }
+  }
+
+  updatePhase(1);
+  document.getElementById('chat-wrap').innerHTML = '';
+  agentGreet();
+}
+
+function resetSession(){
+  document.getElementById('screen-agent').style.display = 'none';
+  document.getElementById('screen-setup').style.display = 'block';
+}
+
+/* ══════════════════════════════════
+   PHASE TRACKER
+══════════════════════════════════ */
+function updatePhase(n){
+  state.phase = n;
+  for(let i=1;i<=6;i++){
+    const el = document.getElementById('ph-'+i);
+    el.className = 'phase-chip' + (i<n?' done':i===n?' active':'');
+  }
+}
+
+/* ══════════════════════════════════
+   SYSTEM PROMPT (PER SUBJECT)
+══════════════════════════════════ */
+function buildPrompt(){
+  const s = SUBJ[state.subject];
+  const topics = state.form==='4' ? s.f4 : s.f4 + '\n\n[TINGKATAN 5]\n' + s.f5;
+  const daysLeft = state.examDate
+    ? Math.ceil((new Date(state.examDate)-new Date())/86400000)
+    : null;
+
+  return `Kau adalah "Cikgu AI" — AI AGENT tutor SPM Malaysia yang SANGAT MAHIR dalam ${state.subject}.
+
+━━━ MAKLUMAT PELAJAR ━━━
+Nama: ${state.name}
+Tingkatan: ${state.form}
+Subjek: ${state.subject}
+${daysLeft ? 'Hari sebelum SPM: ' + daysLeft + ' hari lagi — jadi TEKANKAN urgensi!' : ''}
+
+━━━ SILIBUS KPM KSSM ${state.subject} ━━━
+${topics}
+
+━━━ FORMAT PEPERIKSAAN SPM ━━━
+${s.paper}
+
+━━━ TIPS & STRATEGI JAWAB ━━━
+${s.tips}
+
+━━━ MISI AGENT KAMU ━━━
+Kau BUKAN chatbot biasa. Kau AI AGENT yang:
+1. INGAT semua maklumat dan jawapan ${state.name} sepanjang sesi ini
+2. PIMPIN sesi — kau yang tentukan langkah seterusnya, bukan tunggu pelajar
+3. BUAT KEPUTUSAN berdasarkan respons — kalau pelajar lemah, ajar lebih mendalam
+4. FOLLOW THROUGH — pastikan pelajar faham sebelum teruskan
+
+━━━ FASA AGENT (IKUT URUTAN KETAT) ━━━
+FASA 1 — KENALI PELAJAR: Dah buat (sapa telah dilakukan). Sekarang tanya SATU soalan: topik mana dalam ${state.subject} yang paling ${state.name} rasa susah / selalu keliru?
+FASA 2 — KENAL PASTI KELEMAHAN: Kali dari jawapan pelajar, tanya 1-2 soalan lagi untuk faham gap sebenar
+FASA 3 — KUIZ DIAGNOSTIK: Bagi 3 soalan pendek FORMAT SPM SEBENAR untuk ukur tahap. WAJIB format: "[A] pilihan / [B] pilihan / [C] pilihan / [D] pilihan" supaya pelajar boleh klik
+FASA 4 — PENGAJARAN TERARAH: Berdasarkan kesilapan kuiz, ajar konsep yang lemah step-by-step seperti cikgu terbaik
+FASA 5 — LATIHAN FORMAT SPM: Bagi soalan latihan FORMAT SPM (nyatakan Bhg A atau B, berapa markah), semak jawapan, betulkan kesilapan dengan penuh sabar
+FASA 6 — RUMUSAN & PLAN: Ringkaskan sesi, senaraikan 3 topik yang dah improve, bagi 5 tips exam, dan cadangkan topik untuk sesi seterusnya
+
+━━━ PERATURAN WAJIB ━━━
+• SENTIASA panggil pelajar dengan nama "${state.name}"
+• SETIAP respons mesti ada "➤ Langkah seterusnya: ..." di akhir
+• Soalan kuiz: format betul-betul macam SPM — label markah, nyatakan Bahagian
+• Kalau pelajar jawab SALAH: explain kesilapan DULU, tunjuk cara betul step-by-step, BARU tanya semula
+• Kalau pelajar jawab BETUL: puji, terangkan kenapa betul, naik level soalan
+• Bahasa: BM santai tapi profesional — boleh guna sikit bahasa pasar
+• Gunakan **bold** untuk istilah teknikal, nombor untuk langkah-langkah
+• JANGAN bagi semua topik sekaligus — satu topik, faham dulu, baru teruskan`;
+}
+
+/* ══════════════════════════════════
+   GREET
+══════════════════════════════════ */
+function agentGreet(){
+  const subj = state.subject;
+  const s = SUBJ[subj];
+  const form = state.form;
+  const daysLeft = state.examDate
+    ? Math.ceil((new Date(state.examDate)-new Date())/86400000)
+    : null;
+
+  const greet = `Assalamualaikum ${state.name}! 👋 Selamat datang ke sesi belajar SPM kamu!
+
+Aku **Cikgu AI** ${s.icon} — tutor khas **${subj}** untuk **Tingkatan ${form}** kamu hari ni.${daysLeft ? `\n\n⏰ Kamu ada **${daysLeft} hari lagi** sebelum SPM — jadi jom kita guna masa ni sebaik mungkin!` : ''}
+
+Sesi hari ni akan berlangsung dalam **6 fasa**:
+① Kenal pasti kelemahan kamu
+② Kuiz diagnostik (format SPM sebenar)
+③ Pengajaran terarah pada bahagian yang lemah
+④ Latihan soalan format SPM
+⑤ Semak & betulkan kesilapan
+⑥ Rumusan + plan belajar seterusnya
+
+Cikgu AI akan **pimpin** kamu sepanjang sesi — kamu cuma perlu jawab dan ikut panduan.
+
+Soalan pertama untuk kamu, ${state.name}:
+**Dalam ${subj} Tingkatan ${form}, topik atau bahagian mana yang paling kamu rasa susah / selalu keliru atau tak confident?**
+
+*(Contoh: "Aku selalu keliru dengan ${subj==='Matematik'?'trigonometri dan formula luas':subj==='Bahasa Malaysia'?'cara tulis rumusan dan format karangan':subj==='Fizik'?'pengiraan daya dan gerakan':subj==='Kimia'?'elektrolisis dan persamaan kimia':subj==='Biologi'?'genetik dan meiosis':subj==='Sejarah'?'tarikh dan sebab kemerdekaan':subj==='Matematik Tambahan'?'pembezaan dan pengamiran':subj==='Bahasa Inggeris'?'directed writing and summary':'topik-topik utama'}")*`;
+
+  addMsg('ai', greet);
+  state.history.push({ role:'assistant', content: greet });
+}
+
+/* ══════════════════════════════════
+   CHAT
+══════════════════════════════════ */
+function getTime(){
+  return new Date().toLocaleTimeString('ms-MY',{hour:'2-digit',minute:'2-digit'});
+}
+
+function addMsg(role, text){
+  const wrap = document.getElementById('chat-wrap');
+  const row = document.createElement('div');
+  row.className = 'msg-row ' + role;
+  const av = document.createElement('div');
+  av.className = 'msg-avatar ' + role;
+  av.textContent = role==='ai' ? '🎓' : '🧑';
+  const inner = document.createElement('div');
+  inner.className = 'msg-inner';
+  const bub = document.createElement('div');
+  bub.className = 'bubble ' + role;
+  bub.innerHTML = fmtText(text);
+  bub.querySelectorAll('.opt').forEach(btn => {
+    btn.addEventListener('click', () => pickOpt(btn));
+  });
+  const t = document.createElement('div');
+  t.className = 'msg-time';
+  t.textContent = getTime();
+  inner.appendChild(bub);
+  inner.appendChild(t);
+  row.appendChild(av);
+  row.appendChild(inner);
+  wrap.appendChild(row);
+  wrap.scrollTop = wrap.scrollHeight;
+  return bub;
+}
+
+function pickOpt(btn){
+  const bub = btn.closest('.bubble');
+  bub.querySelectorAll('.opt').forEach(b => { b.disabled = true; b.style.pointerEvents='none'; });
+  const label = btn.textContent.trim();
+  send('[' + label.split(']')[0].replace('[','') + '] — ' + label.split('] ')[1]);
+}
+
+function showTyping(){
+  const wrap = document.getElementById('chat-wrap');
+  const row = document.createElement('div');
+  row.id = 'typing-row';
+  row.className = 'msg-row ai';
+  const av = document.createElement('div');
+  av.className = 'msg-avatar ai';
+  av.textContent = '🎓';
+  const bub = document.createElement('div');
+  bub.className = 'typing-bubble';
+  bub.innerHTML = '<span></span><span></span><span></span>';
+  row.appendChild(av);
+  row.appendChild(bub);
+  wrap.appendChild(row);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function hideTyping(){
+  const el = document.getElementById('typing-row');
+  if(el) el.remove();
+}
+
+function fmtText(txt){
+  let h = txt
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+  // Quiz options [A]/[B]/[C]/[D]
+  h = h.replace(/\[([ABCD])\]\s([^\n\[]+)/g, (m,opt,label) =>
+    `<button class="opt">[${opt}] ${label.trim()}</button>`);
+  return h.replace(/\n/g,'<br>');
+}
+
+async function callAgent(userMsg){
+  document.getElementById('send-btn').disabled = true;
+  showTyping();
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        system: buildPrompt(),
+        messages: state.history
+      })
+    });
+    const data = await res.json();
+    const reply = data.content?.map(b=>b.text||'').join('') || 'Maaf, ada masalah teknikal. Cuba semula!';
+    hideTyping();
+    addMsg('ai', reply);
+    state.history.push({role:'assistant', content:reply});
+
+    // Auto advance phase
+    const u = state.history.filter(m=>m.role==='user').length;
+    if(u>=1 && state.phase<2) updatePhase(2);
+    else if(u>=2 && state.phase<3) updatePhase(3);
+    else if(u>=4 && state.phase<4) updatePhase(4);
+    else if(u>=6 && state.phase<5) updatePhase(5);
+    else if(u>=8 && state.phase<6) updatePhase(6);
+
+  } catch(e){
+    hideTyping();
+    addMsg('ai','❌ Ralat sambungan. Cuba semula atau refresh halaman ini.');
+  }
+  document.getElementById('send-btn').disabled = false;
+  document.getElementById('msg-input').focus();
+}
+
+function send(override){
+  const inp = document.getElementById('msg-input');
+  const msg = override || inp.value.trim();
+  if(!msg) return;
+  addMsg('user', msg);
+  if(!override){ inp.value=''; inp.style.height='auto'; }
+  state.history.push({role:'user', content:msg});
+  callAgent(msg);
+}
+
+document.getElementById('msg-input').addEventListener('input', function(){
+  this.style.height='auto';
+  this.style.height = Math.min(this.scrollHeight,110)+'px';
+});
+document.getElementById('msg-input').addEventListener('keydown', function(e){
+  if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(); }
+});
+</script>
+</body>
+</html>
