@@ -482,16 +482,20 @@ async function callAgent(userMsg){
   showTyping();
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('https://ai-tutor-spm.multirichresources.workers.dev/', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        model:'claude-sonnet-4-20250514',
+        model:'claude-haiku-4-5-20251001',
         max_tokens:1000,
         system: buildPrompt(),
         messages: state.history
       })
     });
+    if(!res.ok){
+      const err = await res.json().catch(()=>({}));
+      throw new Error(err?.error?.message || 'Status ' + res.status);
+    }
     const data = await res.json();
     const reply = data.content?.map(b=>b.text||'').join('') || 'Maaf, ada masalah teknikal. Cuba semula!';
     hideTyping();
@@ -508,7 +512,7 @@ async function callAgent(userMsg){
 
   } catch(e){
     hideTyping();
-    addMsg('ai','❌ Ralat sambungan. Cuba semula atau refresh halaman ini.');
+    addMsg('ai','❌ Ralat: ' + (e.message||'Masalah sambungan') + '. Cuba semula atau refresh halaman ini.');
   }
   document.getElementById('send-btn').disabled = false;
   document.getElementById('msg-input').focus();
