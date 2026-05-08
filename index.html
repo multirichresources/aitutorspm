@@ -106,6 +106,20 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .brand-name{font-size:28px;font-weight:800;color:#e2e8f0;letter-spacing:-.02em;line-height:1.1}
 .brand-name span{background:linear-gradient(135deg,#7c3aed,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .brand-sub{font-size:13px;color:#64748b;font-weight:400;letter-spacing:.01em}
+
+/* ─── FILE ATTACHMENT ─── */
+#attach-btn{width:40px;height:40px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+#attach-btn:hover{border-color:var(--purple);color:var(--purplesoft)}
+#attach-btn.has-file{border-color:var(--purple);color:var(--purplesoft);background:var(--purpledim)}
+.preview-bar{background:var(--card);border:1px solid var(--border);border-bottom:none;border-radius:10px 10px 0 0;padding:8px 12px;display:flex;align-items:center;gap:10px}
+.preview-bar img.thumb{width:38px;height:38px;object-fit:cover;border-radius:6px;border:1px solid var(--border);flex-shrink:0}
+.preview-bar .pdf-icon{width:38px;height:38px;background:var(--purpledim);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.preview-bar .fname{flex:1;font-size:12px;color:var(--purplesoft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.preview-bar .fsize{font-size:11px;color:var(--muted);flex-shrink:0}
+.preview-bar .rm-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;padding:0 2px;flex-shrink:0;line-height:1}
+.preview-bar .rm-btn:hover{color:var(--red)}
+.bubble-img{max-width:220px;border-radius:8px;margin-top:6px;border:1px solid var(--border);display:block}
+.bubble-file{display:inline-flex;align-items:center;gap:7px;background:var(--purpledim);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--purplesoft);margin-top:6px}
 </style>
 </head>
 <body>
@@ -185,7 +199,15 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 
   <div class="chat-wrap" id="chat-wrap"></div>
 
+  <div id="preview-bar" class="preview-bar" style="display:none">
+    <div id="preview-thumb"></div>
+    <span class="fname" id="preview-name"></span>
+    <span class="fsize" id="preview-size"></span>
+    <button class="rm-btn" onclick="removeFile()" title="Buang">✕</button>
+  </div>
   <div class="input-row">
+    <input type="file" id="file-input" accept="image/*,.pdf" style="display:none" onchange="handleFile(event)">
+    <button id="attach-btn" onclick="document.getElementById('file-input').click()" title="Lampir gambar / PDF">📎</button>
     <textarea id="msg-input" placeholder="Taip jawapan atau soalan anda..." rows="1"></textarea>
     <button id="send-btn" onclick="send()" title="Hantar">➤</button>
   </div>
@@ -496,7 +518,7 @@ function fmtText(txt){
   return h.replace(/\n/g,'<br>');
 }
 
-async function callAgent(userMsg){
+async function callAgent(){
   document.getElementById('send-btn').disabled = true;
   showTyping();
 
@@ -537,14 +559,84 @@ async function callAgent(userMsg){
   document.getElementById('msg-input').focus();
 }
 
-function send(override){
+// ── ATTACHMENT ──
+let attachment = null;
+
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { alert('Fail terlalu besar. Maksimum 5MB.'); return; }
+  const isImg = file.type.startsWith('image/');
+  const isPDF = file.type === 'application/pdf';
+  if (!isImg && !isPDF) { alert('Hanya gambar (JPG/PNG) atau PDF sahaja.'); return; }
+
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const b64 = ev.target.result.split(',')[1];
+    attachment = { type: isImg ? 'image' : 'document', data: b64,
+                   mediaType: isImg ? file.type : 'application/pdf',
+                   name: file.name, preview: isImg ? ev.target.result : null };
+
+    const bar = document.getElementById('preview-bar');
+    const thumb = document.getElementById('preview-thumb');
+    document.getElementById('preview-name').textContent = file.name;
+    document.getElementById('preview-size').textContent = (file.size/1024).toFixed(0) + ' KB';
+    thumb.innerHTML = isImg
+      ? `<img class="thumb" src="${ev.target.result}">`
+      : `<div class="pdf-icon">📄</div>`;
+    bar.style.display = 'flex';
+    document.getElementById('attach-btn').classList.add('has-file');
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+function removeFile() {
+  attachment = null;
+  document.getElementById('preview-bar').style.display = 'none';
+  document.getElementById('preview-thumb').innerHTML = '';
+  document.getElementById('attach-btn').classList.remove('has-file');
+}
+
+function send(override) {
   const inp = document.getElementById('msg-input');
-  const msg = override || inp.value.trim();
-  if(!msg) return;
-  addMsg('user', msg);
-  if(!override){ inp.value=''; inp.style.height='auto'; }
-  state.history.push({role:'user', content:msg});
-  callAgent(msg);
+  const txt = override || inp.value.trim();
+  if (!txt && !attachment) return;
+
+  // Build content untuk Claude API
+  let msgContent;
+  if (attachment) {
+    const blocks = [];
+    if (attachment.type === 'image') {
+      blocks.push({ type:'image', source:{ type:'base64', media_type:attachment.mediaType, data:attachment.data } });
+    } else {
+      blocks.push({ type:'document', source:{ type:'base64', media_type:'application/pdf', data:attachment.data } });
+    }
+    blocks.push({ type:'text', text: txt || (attachment.type==='image'
+      ? 'Tolong semak jawapan saya dalam gambar ini. Bagi markah dan tunjukkan kesilapan.'
+      : 'Tolong baca dokumen ini dan bantu saya faham atau jawab soalan yang ada.') });
+    msgContent = blocks;
+  } else {
+    msgContent = txt;
+  }
+
+  // Papar dalam chat
+  const bub = addMsg('user', txt || `📎 ${attachment.name}`);
+  if (attachment?.preview) {
+    const img = document.createElement('img');
+    img.src = attachment.preview; img.className = 'bubble-img';
+    bub.appendChild(img);
+  } else if (attachment?.type === 'document') {
+    const tag = document.createElement('div');
+    tag.className = 'bubble-file';
+    tag.innerHTML = `📄 ${attachment.name}`;
+    bub.appendChild(tag);
+  }
+
+  if (!override) { inp.value = ''; inp.style.height = 'auto'; }
+  state.history.push({ role:'user', content: msgContent });
+  removeFile();
+  callAgent();
 }
 
 document.getElementById('msg-input').addEventListener('input', function(){
